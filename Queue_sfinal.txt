@@ -1,0 +1,147 @@
+#include <iostream>
+#include <queue>
+#include <string>
+#include <thread>
+#include <chrono>
+#include <atomic>
+
+using namespace std;
+
+// Person class to store each person's details
+class Person {
+public:
+    string name;
+    int ticketNumber;
+
+    Person(const string& name, int ticketNumber) : name(name), ticketNumber(ticketNumber) {}
+};
+
+// Queue class to manage the ticketing queue
+class Queue {
+private:
+    queue<Person> ticketQueue;
+    int ticketCounter;
+
+public:
+    Queue() : ticketCounter(1) {}
+
+    // Add a person to the queue with a unique ticket number
+    void enqueue(const string& name) {
+        Person newPerson(name, ticketCounter++);
+        ticketQueue.push(newPerson);
+        cout << name << " added to the queue with Ticket #" << newPerson.ticketNumber << endl;
+        cout << "Queue size: " << ticketQueue.size() << endl;
+    }
+
+    // Automatically remove the person at the front of the queue every minute
+    void dequeue() {
+        if (!ticketQueue.empty()) {
+            Person frontPerson = ticketQueue.front();
+            cout << "Dequeue: " << frontPerson.name << " received a ticket (Ticket #" << frontPerson.ticketNumber << ")" << endl;
+            ticketQueue.pop();
+            cout << "Queue size: " << ticketQueue.size() << endl;
+
+            if (!ticketQueue.empty()) {
+                Person nextPerson = ticketQueue.front();
+                cout << "Next in line: " << nextPerson.name << " (Ticket #" << nextPerson.ticketNumber << ")" << endl;
+            } else {
+                cout << "No more people in line." << endl;
+            }
+        } else {
+            cout << "The queue is empty!" << endl;
+        }
+    }
+
+    // Check if the queue is empty
+    bool isEmpty() const {
+        return ticketQueue.empty();
+    }
+
+    // Return the number of people currently in the queue
+    int size() const {
+        return ticketQueue.size();
+    }
+
+    // Show the next person in line
+    void peek() const {
+        if (!ticketQueue.empty()) {
+            Person frontPerson = ticketQueue.front();
+            cout << "Next in line: " << frontPerson.name << " (Ticket #" << frontPerson.ticketNumber << ")" << endl;
+        } else {
+            cout << "The queue is empty!" << endl;
+        }
+    }
+
+    // Find the position of a person by name or ticket number
+    void position(const string& identifier) const {
+        queue<Person> tempQueue = ticketQueue;
+        int position = 1;
+
+        while (!tempQueue.empty()) {
+            Person currentPerson = tempQueue.front();
+            tempQueue.pop();
+
+            if (currentPerson.name == identifier || to_string(currentPerson.ticketNumber) == identifier) {
+                cout << currentPerson.name << " is currently at position " << position << " in the queue." << endl;
+                return;
+            }
+            position++;
+        }
+
+        cout << "No person found with the name or ticket number: " << identifier << endl;
+    }
+};
+
+// Function to handle automatic dequeuing every minute
+void autoDequeue(Queue& queue, atomic<bool>& active) {
+    while (active) {
+        this_thread::sleep_for(chrono::minutes(1));
+        queue.dequeue();
+    }
+}
+
+int main() {
+    Queue queue;
+    atomic<bool> active(true);
+    int option;
+    string name;
+
+    cout << "Welcome to Olivia Rodrigo's Concert Ticketing System!" << endl;
+
+    // Start a thread for automatic dequeuing
+    thread dequeueThread(autoDequeue, ref(queue), ref(active));
+
+    while (true) {
+        cout << "\n1. Enqueue a person" << endl;
+        cout << "2. Check your position in the queue" << endl;
+        cout << "3. Exit" << endl;
+        cout << "Choose an option: ";
+        cin >> option;
+
+        switch (option) {
+            case 1:
+                cout << "Enter the name: ";
+                cin >> name;
+                queue.enqueue(name);
+                break;
+
+            case 2:
+                cout << "Enter your name or ticket number: ";
+                cin >> name;
+                queue.position(name);
+                queue.peek();
+                break;
+
+            case 3:
+                active = false;
+                cout << "Exiting the system..." << endl;
+                dequeueThread.join();
+                return 0;
+
+            default:
+                cout << "Invalid option. Please try again." << endl;
+        }
+    }
+
+    return 0;
+}
